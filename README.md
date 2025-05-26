@@ -1,36 +1,225 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Task Management System
 
-## Getting Started
+Next.js 15 App Router ile geliştirilmiş kanban tabanlı görev yönetim sistemi. AI asistan entegrasyonu ile akıllı görev yönetimi sunar.
 
-First, run the development server:
+## Özellikler
+
+- 🎯 **Kanban Board**: Görev durumlarını görsel olarak yönetme
+- 🤖 **AI Asistan**: OpenAI ile akıllı görev yönetimi
+- 👥 **Kullanıcı Rolleri**: Admin ve User rolleri
+- 🏢 **Müşteri Yönetimi**: Müşteri bazlı görev organizasyonu
+- 📝 **Görev Notları**: Görevlere yorum ekleme
+- 📎 **Dosya Ekleri**: Görevlere dosya ekleme
+- 🏷️ **Etiketler**: Görevleri kategorize etme
+- 🔐 **Güvenli Auth**: NextAuth.js ile kimlik doğrulama
+
+## Teknolojiler
+
+- **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, Prisma ORM
+- **Database**: PostgreSQL
+- **Auth**: NextAuth.js
+- **AI**: OpenAI GPT-3.5-turbo
+- **UI**: Lucide React Icons
+
+## Kurulum
+
+### 1. Projeyi klonlayın
+
+```bash
+git clone <repo-url>
+cd cpa_task
+```
+
+### 2. Bağımlılıkları yükleyin
+
+```bash
+npm install
+```
+
+### 3. Environment variables
+
+`.env` dosyası oluşturun ve gerekli değerleri doldurun:
+
+```env
+# Database
+DATABASE_URL="postgresql://postgres:205630@localhost:5432/mcpdemo"
+
+# NextAuth
+NEXTAUTH_SECRET="your-super-secret-key-here-change-this-in-production"
+NEXTAUTH_URL="http://localhost:3000"
+
+# OpenAI
+OPENAI_API_KEY="your-openai-api-key-here"
+```
+
+### 4. Database kurulumu
+
+PostgreSQL veritabanınızı oluşturun ve Prisma migration'larını çalıştırın:
+
+```bash
+# Prisma client oluştur
+npx prisma generate
+
+# Database migration
+npx prisma migrate dev --name init
+
+# Demo verileri ekle
+npm run db:seed
+
+# (Opsiyonel) Prisma Studio ile veritabanını görüntüle
+npx prisma studio
+```
+
+### 5. Uygulamayı çalıştırın
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Uygulama http://localhost:3000 adresinde çalışacaktır.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo Hesaplar
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Seed script çalıştırıldıktan sonra aşağıdaki demo hesapları kullanabilirsiniz:
 
-## Learn More
+- **Admin**: admin@example.com / admin123
+- **User**: user@example.com / user123
 
-To learn more about Next.js, take a look at the following resources:
+## Kullanım
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Giriş Yapma
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. http://localhost:3000 adresine gidin
+2. Demo hesaplardan biriyle giriş yapın:
+   - Admin: admin@example.com / admin123
+   - User: user@example.com / user123
 
-## Deploy on Vercel
+### Görev Yönetimi
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+1. **Görev Oluşturma**: "Yeni Görev" butonuna tıklayın
+2. **Durum Değiştirme**: Görev kartındaki menüden durumu değiştirin
+3. **Kanban Board**: Görevleri sütunlar arasında görüntüleyin
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### AI Asistan
+
+1. "AI Asistan" sekmesine geçin
+2. Doğal dilde sorular sorun:
+   - "Kaç tane admin kullanıcı var?"
+   - "Toplam kullanıcı sayısı nedir?"
+   - "Doğrulanmış kullanıcı sayısı?"
+
+## API Endpoints
+
+### Authentication
+- `POST /api/auth/[...nextauth]` - NextAuth endpoints
+
+### Users
+- `GET /api/users` - Kullanıcıları listele (Admin only)
+- `POST /api/users` - Yeni kullanıcı oluştur (Admin only)
+
+### Customers
+- `GET /api/customers` - Müşterileri listele
+- `POST /api/customers` - Yeni müşteri oluştur
+- `GET /api/customers/[id]/files` - Müşteri dosyalarını listele
+- `POST /api/customers/[id]/files` - Müşteri dosyası ekle
+
+### Tasks
+- `GET /api/tasks` - Görevleri listele
+- `POST /api/tasks` - Yeni görev oluştur
+- `GET /api/tasks/[id]` - Görev detayı
+- `PUT /api/tasks/[id]` - Görev güncelle
+- `DELETE /api/tasks/[id]` - Görev sil
+- `GET /api/tasks/[id]/notes` - Görev notları
+- `POST /api/tasks/[id]/notes` - Görev notu ekle
+
+### AI Chat
+- `POST /api/chat` - AI asistan ile sohbet
+
+## Proje Yapısı
+
+```
+src/
+├── app/                    # Next.js App Router
+│   ├── api/               # API Routes
+│   ├── auth/              # Auth sayfaları
+│   ├── globals.css        # Global CSS
+│   ├── layout.tsx         # Root layout
+│   ├── page.tsx          # Ana sayfa
+│   └── providers.tsx      # Context providers
+├── components/            # React components
+│   ├── ChatInterface.tsx  # AI chat arayüzü
+│   ├── CreateTaskModal.tsx
+│   ├── Dashboard.tsx      # Ana dashboard
+│   ├── LoadingSpinner.tsx
+│   ├── TaskBoard.tsx      # Kanban board
+│   ├── TaskCard.tsx       # Görev kartı
+│   └── TaskColumn.tsx     # Kanban sütunu
+├── lib/                   # Utility libraries
+│   ├── ai-agent.ts       # OpenAI AI agent
+│   ├── auth.ts           # NextAuth config
+│   ├── prisma.ts         # Prisma client
+│   └── utils.ts          # Utility functions
+└── types/                 # TypeScript types
+    └── next-auth.d.ts    # NextAuth type extensions
+```
+
+## Geliştirme
+
+### Database Schema Değişiklikleri
+
+```bash
+# Schema değişikliği sonrası
+npx prisma migrate dev --name your-migration-name
+npx prisma generate
+```
+
+### Demo Verileri Yenileme
+
+```bash
+# Veritabanını sıfırla ve demo verileri ekle
+npx prisma migrate reset
+npm run db:seed
+```
+
+### AI Asistan Geliştirme
+
+`src/lib/ai-agent.ts` dosyasında yeni özellikler ekleyebilirsiniz:
+
+```typescript
+// Yeni tool fonksiyonu eklemek için
+async newTool(params: any) {
+  try {
+    // Tool logic
+    return { success: true, data: result }
+  } catch (error) {
+    return { success: false, error: 'Error message' }
+  }
+}
+```
+
+## Sorun Giderme
+
+### Yaygın Hatalar
+
+1. **Database bağlantı hatası**: DATABASE_URL'in doğru olduğundan emin olun
+2. **NextAuth JWT hatası**: NEXTAUTH_SECRET'in ayarlandığından emin olun
+3. **OpenAI API hatası**: OPENAI_API_KEY'in geçerli olduğundan emin olun
+
+### Loglama
+
+Geliştirme sırasında console.log'ları kontrol edin:
+- Browser console: Frontend hataları
+- Terminal: Backend API hataları
+
+## Lisans
+
+MIT License
+
+## Katkıda Bulunma
+
+1. Fork edin
+2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
+3. Commit edin (`git commit -m 'Add amazing feature'`)
+4. Push edin (`git push origin feature/amazing-feature`)
+5. Pull Request oluşturun
