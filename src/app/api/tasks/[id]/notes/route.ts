@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createTaskActivity } from '@/lib/activity'
+import { eventEmitter } from '../../../events/route'
 
 export async function GET(
   request: NextRequest,
@@ -25,6 +27,7 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           },
         },
       },
@@ -87,10 +90,22 @@ export async function POST(
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           },
         },
       },
     })
+
+    // Create activity log
+    await createTaskActivity(
+      id,
+      session.user.id,
+      'NOTE_ADDED',
+      { noteContent: content.trim().substring(0, 100) + (content.trim().length > 100 ? '...' : '') }
+    )
+
+    // Emit real-time event
+    eventEmitter.emit('note_added', { taskId: id, note })
 
     return NextResponse.json(note, { status: 201 })
   } catch (error) {

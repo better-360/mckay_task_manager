@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
+import { useSession } from 'next-auth/react'
 import {
   DndContext,
   DragEndEvent,
@@ -11,10 +12,10 @@ import {
   useSensor,
   useSensors,
 } from '@dnd-kit/core'
-import { arrayMove, SortableContext } from '@dnd-kit/sortable'
 import TaskColumn from './TaskColumn'
 import CreateTaskModal from './CreateTaskModal'
 import TaskCard from './TaskCard'
+import { useRealtime } from '@/hooks/useRealtime'
 
 interface Task {
   id: string
@@ -25,6 +26,7 @@ interface Task {
     id: string
     name: string
     email: string
+    profilePicture?: string
   }
   customer: {
     id: string
@@ -34,6 +36,7 @@ interface Task {
     id: string
     name: string
     email: string
+    profilePicture?: string
   }
   dueDate?: string
   createdAt: string
@@ -59,6 +62,7 @@ const TASK_STATUSES = [
 ]
 
 export default function TaskBoard() {
+  const { data: session } = useSession()
   const [tasks, setTasks] = useState<Task[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -71,6 +75,41 @@ export default function TaskBoard() {
       },
     })
   )
+
+  // Real-time updates
+  useRealtime({
+    onTaskCreated: (task) => {
+      setTasks(prev => [task, ...prev])
+    },
+    onTaskUpdated: (updatedTask) => {
+      setTasks(prev => prev.map(task => 
+        task.id === updatedTask.id ? updatedTask : task
+      ))
+    },
+    onTaskDeleted: (data) => {
+      setTasks(prev => prev.filter(task => task.id !== data.id))
+    },
+    onNoteAdded: (data) => {
+      // Update note count for the task
+      setTasks(prev => prev.map(task => 
+        task.id === data.taskId 
+          ? { ...task, _count: { ...task._count, notes: task._count.notes + 1 } }
+          : task
+      ))
+    },
+    onNoteUpdated: (data) => {
+      // Note updates don't affect count, but we might want to trigger a refresh
+      // for other real-time users to see the change indicator
+    },
+    onNoteDeleted: (data) => {
+      // Update note count for the task
+      setTasks(prev => prev.map(task => 
+        task.id === data.taskId 
+          ? { ...task, _count: { ...task._count, notes: Math.max(0, task._count.notes - 1) } }
+          : task
+      ))
+    },
+  })
 
   const fetchTasks = async () => {
     try {
@@ -93,12 +132,13 @@ export default function TaskBoard() {
   }, [])
 
   const handleTaskCreated = () => {
-    fetchTasks() // Yeniden fetch et
+    // Real-time will handle the update, but we can close the modal
     setShowCreateModal(false)
   }
 
   const handleTaskUpdated = () => {
-    fetchTasks() // Yeniden fetch et
+    // Real-time will handle the update automatically
+    // This is kept for backward compatibility with components that still call it
   }
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -138,9 +178,10 @@ export default function TaskBoard() {
       })
 
       if (!response.ok) {
-        // Revert on error
+        // Revert on error - real-time will handle the correct state
         fetchTasks()
       }
+      // Real-time will handle the successful update
     } catch (error) {
       console.error('Error updating task:', error)
       // Revert on error
@@ -183,6 +224,7 @@ export default function TaskBoard() {
               status={status}
               tasks={tasks.filter(task => task.status === status.key)}
               onTaskUpdated={handleTaskUpdated}
+              currentUserId={session?.user?.id}
             />
           ))}
         </div>
@@ -194,6 +236,7 @@ export default function TaskBoard() {
               <TaskCard
                 task={activeTask}
                 onTaskUpdated={() => {}}
+                currentUserId={session?.user?.id}
               />
             </div>
           ) : null}

@@ -47,9 +47,10 @@ interface TaskColumnProps {
   }
   tasks: Task[]
   onTaskUpdated: () => void
+  currentUserId?: string
 }
 
-export default function TaskColumn({ status, tasks, onTaskUpdated }: TaskColumnProps) {
+export default function TaskColumn({ status, tasks, onTaskUpdated, currentUserId }: TaskColumnProps) {
   const { setNodeRef, isOver } = useDroppable({
     id: status.key,
   })
@@ -75,6 +76,7 @@ export default function TaskColumn({ status, tasks, onTaskUpdated }: TaskColumnP
               key={task.id}
               task={task}
               onTaskUpdated={onTaskUpdated}
+              currentUserId={currentUserId}
             />
           ))}
           

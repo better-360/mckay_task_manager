@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -11,7 +8,7 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id              String            @id @default(uuid()) @db.Uuid
   name          String?
   email         String    @unique
   emailVerified DateTime?
@@ -20,6 +17,9 @@ model User {
   password      String?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
+  profilePicture String?
+  phoneNumber   String?
+  
 
   // Relations
   assignedTasks Task[]     @relation("AssignedTasks")
@@ -27,13 +27,15 @@ model User {
   taskNotes     TaskNote[]
   accounts      Account[]
   sessions      Session[]
+  userSkills    UserSkill[]
+  activities    TaskActivity[] @relation("ActivityActor")
 
   @@map("users")
 }
 
 model Account {
-  id                String  @id @default(cuid())
-  userId            String
+  id              String            @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
   type              String
   provider          String
   providerAccountId String
@@ -51,10 +53,11 @@ model Account {
   @@map("accounts")
 }
 
+
 model Session {
-  id           String   @id @default(cuid())
+  id              String            @id @default(uuid()) @db.Uuid
   sessionToken String   @unique
-  userId       String
+  userId       String   @db.Uuid
   expires      DateTime
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -70,13 +73,9 @@ model VerificationToken {
   @@map("verificationtokens")
 }
 
-enum Role {
-  ADMIN
-  USER
-}
 
 model Customer {
-  id          String         @id @default(cuid())
+  id              String            @id @default(uuid()) @db.Uuid
   name        String
   description String?
   files       CustomerFile[]
@@ -88,8 +87,8 @@ model Customer {
 }
 
 model CustomerFile {
-  id         String   @id @default(cuid())
-  customerId String
+  id              String            @id @default(uuid()) @db.Uuid
+  customerId String   @db.Uuid
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   filename   String
   url        String
@@ -99,15 +98,15 @@ model CustomerFile {
 }
 
 model Task {
-  id          String       @id @default(cuid())
+  id              String            @id @default(uuid()) @db.Uuid
   title       String
-  description String?
-  status      String       @default("PENDING")
-  assigneeId  String?
+  description Json?        // Rich text içerik için JSON formatında
+  status      TaskStatus  @default(PENDING)
+  assigneeId  String?      @db.Uuid
   assignee    User?        @relation("AssignedTasks", fields: [assigneeId], references: [id])
-  customerId  String
+  customerId  String       @db.Uuid
   customer    Customer     @relation(fields: [customerId], references: [id])
-  createdById String
+  createdById String       @db.Uuid
   createdBy   User         @relation("CreatedTasks", fields: [createdById], references: [id])
   dueDate     DateTime?
   createdAt   DateTime     @default(now())
@@ -117,24 +116,40 @@ model Task {
   notes       TaskNote[]
   tags        TaskTag[]
   attachments Attachment[]
+  activities  TaskActivity[]
 
   @@map("tasks")
 }
 
 model TaskNote {
-  id        String   @id @default(cuid())
-  taskId    String
+  id              String            @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
   task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
-  authorId  String
+  authorId  String   @db.Uuid
   author    User     @relation(fields: [authorId], references: [id])
-  content   String
+  content   String   // String formatında basit text
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  attachments Attachment[] // Notlara da dosya eklenebilsin
 
   @@map("task_notes")
 }
 
+model TaskActivity {
+  id              String            @id @default(uuid()) @db.Uuid
+  taskId      String       @db.Uuid
+  task        Task         @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  actorId     String       @db.Uuid
+  actor       User         @relation("ActivityActor", fields: [actorId], references: [id])
+  type        ActivityType
+  metadata    Json?        // Değişiklik detayları için (eski/yeni değerler)
+  createdAt   DateTime     @default(now())
+
+  @@map("task_activities")
+}
+
 model Tag {
-  id    String    @id @default(cuid())
+  id    String    @db.Uuid @id @default(uuid())
   name  String    @unique
   color String
   tasks TaskTag[]
@@ -143,8 +158,8 @@ model Tag {
 }
 
 model TaskTag {
-  taskId String
-  tagId  String
+  taskId String @db.Uuid
+  tagId  String @db.Uuid
   task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
   tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
 
@@ -153,12 +168,75 @@ model TaskTag {
 }
 
 model Attachment {
-  id         String   @id @default(cuid())
-  taskId     String
-  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  id              String            @id @default(uuid()) @db.Uuid
+  taskId     String?   @db.Uuid
+  task       Task?     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  noteId     String?   @db.Uuid
+  note       TaskNote? @relation(fields: [noteId], references: [id], onDelete: Cascade)
   filename   String
   url        String
-  uploadedAt DateTime @default(now())
+  mimeType   String    // Dosya türü için
+  size       Int       // Byte cinsinden boyut
+  uploadedAt DateTime  @default(now())
 
   @@map("attachments")
-} 
+}
+
+model Skill {
+  id              String            @id @default(uuid()) @db.Uuid
+  name        String      @unique
+  category    String      // Örn: "Programming", "Language", "Tool"
+  description String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userSkills  UserSkill[]
+
+  @@map("skills")
+}
+
+model UserSkill {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId      String   @db.Uuid
+  skillId     String   @db.Uuid
+  level       Int      // 1-5 arası bir değer
+  yearsOfExp  Float?   // Deneyim yılı
+  description String?  // Kişisel notlar veya açıklamalar
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  skill       Skill    @relation(fields: [skillId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, skillId])
+  @@map("user_skills")
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityType {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_DELETED
+  STATUS_CHANGED
+  ASSIGNEE_CHANGED
+  TAG_ADDED
+  TAG_REMOVED
+  NOTE_ADDED
+  NOTE_UPDATED
+  NOTE_DELETED
+  ATTACHMENT_ADDED
+  ATTACHMENT_REMOVED
+  DUE_DATE_CHANGED
+}

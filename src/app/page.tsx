@@ -1,28 +1,21 @@
-'use client'
+import { Suspense } from 'react';
+import { Dashboard } from '@/components/Dashboard';
 
-import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import Dashboard from '@/components/Dashboard'
-import LoadingSpinner from '@/components/LoadingSpinner'
+interface Props {
+  searchParams: {
+    page?: string;
+    search?: string;
+    role?: string;
+  };
+}
 
-export default function Home() {
-  const { data: session, status } = useSession()
-  const router = useRouter()
+export default async function HomePage({ searchParams }: Props) {
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth/signin')
-    }
-  }, [status, router])
 
-  if (status === 'loading') {
-    return <LoadingSpinner />
-  }
 
-  if (!session) {
-    return null
-  }
-
-  return <Dashboard />
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <Dashboard />
+    </Suspense>
+  );
 }

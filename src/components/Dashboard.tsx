@@ -2,19 +2,21 @@
 
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { LogOut, MessageSquare, Users, FolderOpen, CheckSquare, Building2 } from 'lucide-react'
+import { LogOut, MessageSquare, Users, CheckSquare, Building2, Star } from 'lucide-react'
 import TaskBoard from './TaskBoard'
 import ChatInterface from './ChatInterface'
 import CustomerManagement from './CustomerManagement'
 import UserManagement from './UserManagement'
+import SkillManagement from './SkillManagement'
 
-export default function Dashboard() {
-  const { data: session } = useSession()
-  const [activeTab, setActiveTab] = useState<'tasks' | 'chat' | 'customers' | 'users'>('tasks')
+
+export function Dashboard() {
+  const { data: session } = useSession();
+  const [activeTab, setActiveTab] = useState<'tasks' | 'chat' | 'customers' | 'users' | 'skills'>('tasks');
 
   const handleSignOut = () => {
-    signOut({ callbackUrl: '/auth/signin' })
-  }
+    signOut({ callbackUrl: '/auth/signin' });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -97,6 +99,21 @@ export default function Dashboard() {
                 <span>Kullanıcılar</span>
               </div>
             </button>
+            {session?.user?.role === 'ADMIN' && (
+              <button
+                onClick={() => setActiveTab('skills')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'skills'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center space-x-2">
+                  <Star className="h-4 w-4" />
+                  <span>Yetenekler & İş Tanımları</span>
+                </div>
+              </button>
+            )}
             <button
               onClick={() => setActiveTab('chat')}
               className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
@@ -120,7 +137,8 @@ export default function Dashboard() {
         {activeTab === 'customers' && <CustomerManagement />}
         {activeTab === 'users' && <UserManagement />}
         {activeTab === 'chat' && <ChatInterface />}
+        {activeTab === 'skills' && <SkillManagement />}
       </main>
     </div>
-  )
+  );
 } 

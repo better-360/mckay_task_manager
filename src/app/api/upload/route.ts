@@ -2,92 +2,74 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { writeFile, mkdir } from "fs/promises"
-import { join } from "path"
-import { existsSync } from "fs"
+import path from "path"
 
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
-
-    if (!session) {
-      return NextResponse.json(
-        { error: "Giriş yapmanız gerekiyor" },
-        { status: 401 }
-      )
+    if (!session?.user?.id) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    const formData = await req.formData()
-    const file = formData.get("file") as File
+    const data = await request.formData()
+    const file: File | null = data.get("file") as unknown as File
 
     if (!file) {
-      return NextResponse.json(
-        { error: "Dosya bulunamadı" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "No file uploaded" }, { status: 400 })
     }
 
     // Dosya boyutu kontrolü (10MB)
     if (file.size > 10 * 1024 * 1024) {
-      return NextResponse.json(
-        { error: "Dosya boyutu 10MB'dan büyük olamaz" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "File too large" }, { status: 400 })
     }
 
     // Dosya türü kontrolü
     const allowedTypes = [
-      'image/jpeg',
-      'image/png',
-      'image/gif',
-      'image/webp',
-      'application/pdf',
-      'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      'text/plain',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      "image/jpeg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+      "application/pdf",
+      "text/plain",
+      "application/msword",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     ]
 
     if (!allowedTypes.includes(file.type)) {
-      return NextResponse.json(
-        { error: "Desteklenmeyen dosya türü" },
-        { status: 400 }
-      )
+      return NextResponse.json({ error: "File type not allowed" }, { status: 400 })
     }
 
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
+    // Dosya adını güvenli hale getir
+    const timestamp = Date.now()
+    const originalName = file.name.replace(/[^a-zA-Z0-9.-]/g, "_")
+    const fileName = `${timestamp}_${originalName}`
+
     // Upload klasörünü oluştur
-    const uploadDir = join(process.cwd(), "public", "uploads")
-    if (!existsSync(uploadDir)) {
+    const uploadDir = path.join(process.cwd(), "public", "uploads")
+    try {
       await mkdir(uploadDir, { recursive: true })
+    } catch (error) {
+      // Klasör zaten varsa hata vermez
     }
 
-    // Benzersiz dosya adı oluştur
-    const timestamp = Date.now()
-    const randomString = Math.random().toString(36).substring(2, 15)
-    const fileExtension = file.name.split('.').pop()
-    const fileName = `${timestamp}_${randomString}.${fileExtension}`
-    
-    const filePath = join(uploadDir, fileName)
+    // Dosyayı kaydet
+    const filePath = path.join(uploadDir, fileName)
     await writeFile(filePath, buffer)
 
-    // Public URL oluştur
+    // Public URL'i döndür
     const fileUrl = `/uploads/${fileName}`
 
     return NextResponse.json({
       url: fileUrl,
-      fileName: file.name,
+      name: file.name,
       size: file.size,
-      type: file.type
+      type: file.type,
     })
-
   } catch (error) {
-    console.error("File upload error:", error)
-    return NextResponse.json(
-      { error: "Dosya yüklenirken hata oluştu" },
-      { status: 500 }
-    )
+    console.error("Upload error:", error)
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
 } 

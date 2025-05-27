@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
+import RichTextEditor from './RichTextEditor'
 
 interface Customer {
   id: string
@@ -42,10 +43,11 @@ export default function CreateTaskModal({ onClose, onTaskCreated }: CreateTaskMo
       const response = await fetch('/api/customers')
       if (response.ok) {
         const data = await response.json()
-        setCustomers(data)
+        setCustomers(Array.isArray(data) ? data : [])
       }
     } catch (error) {
       console.error('Error fetching customers:', error)
+      setCustomers([])
     }
   }
 
@@ -54,10 +56,11 @@ export default function CreateTaskModal({ onClose, onTaskCreated }: CreateTaskMo
       const response = await fetch('/api/users')
       if (response.ok) {
         const data = await response.json()
-        setUsers(data)
+        setUsers(data.users || [])
       }
     } catch (error) {
       console.error('Error fetching users:', error)
+      setUsers([])
     }
   }
 
@@ -138,13 +141,11 @@ export default function CreateTaskModal({ onClose, onTaskCreated }: CreateTaskMo
             <label htmlFor="description" className="block text-sm font-medium text-gray-700 mb-1">
               Açıklama
             </label>
-            <textarea
-              id="description"
-              name="description"
-              value={formData.description}
-              onChange={handleChange}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+            <RichTextEditor
+              content={formData.description}
+              onChange={(content) => setFormData(prev => ({ ...prev, description: content }))}
+              placeholder="Görev açıklaması..."
+              className="w-full"
             />
           </div>
 
@@ -161,7 +162,7 @@ export default function CreateTaskModal({ onClose, onTaskCreated }: CreateTaskMo
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Müşteri seçin</option>
-              {customers.map((customer) => (
+              {Array.isArray(customers) && customers.map((customer) => (
                 <option key={customer.id} value={customer.id}>
                   {customer.name}
                 </option>
@@ -181,7 +182,7 @@ export default function CreateTaskModal({ onClose, onTaskCreated }: CreateTaskMo
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">Kişi seçin (opsiyonel)</option>
-              {users.map((user) => (
+              {Array.isArray(users) && users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name || user.email}
                 </option>

@@ -57,3 +57,175 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* React Mentions Styles */
+.react-mentions {
+  position: relative;
+}
+
+.react-mentions__control {
+  position: relative;
+}
+
+.react-mentions__highlighter {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow: hidden;
+  z-index: 1;
+  color: #374151;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.react-mentions__input {
+  position: relative;
+  background: transparent !important;
+  width: 100%;
+  box-sizing: border-box;
+  z-index: 2;
+  color: transparent;
+  caret-color: #374151;
+}
+
+.react-mentions__input:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+}
+
+.react-mentions__input::placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.react-mentions__input::-webkit-input-placeholder {
+  color: #9ca3af;
+}
+
+.react-mentions__input::-moz-placeholder {
+  color: #9ca3af;
+  opacity: 1;
+}
+
+.react-mentions__input:-ms-input-placeholder {
+  color: #9ca3af;
+}
+
+.react-mentions__suggestions {
+  position: absolute;
+  z-index: 1000;
+  margin-top: 4px;
+}
+
+.react-mentions__suggestions__list {
+  max-height: 200px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 #f1f5f9;
+}
+
+.react-mentions__suggestions__list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.react-mentions__suggestions__list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 3px;
+}
+
+.react-mentions__suggestions__list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+.react-mentions__suggestions__list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+.react-mentions__suggestions__item {
+  position: relative;
+}
+
+.react-mentions__suggestions__item--focused {
+  background-color: #f8fafc !important;
+}
+
+/* Mention styles in highlighter */
+.react-mentions__highlighter .react-mentions__mention {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid #bfdbfe;
+  margin: 0 1px;
+  display: inline-block;
+}
+
+/* User mention styles */
+.react-mentions__mention[data-mention-type="user"] {
+  background-color: #dbeafe;
+  color: #1e40af;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid #bfdbfe;
+  margin: 0 1px;
+}
+
+/* Customer mention styles */
+.react-mentions__mention[data-mention-type="customer"] {
+  background-color: #dcfce7;
+  color: #15803d;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 500;
+  border: 1px solid #bbf7d0;
+  margin: 0 1px;
+}
+
+/* Tiptap ProseMirror Editor Styles */
+.ProseMirror {
+  min-height: 100px;
+  outline: none;
+  padding: 0;
+}
+
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+
+.ProseMirror-focused {
+  outline: none;
+}
+
+/* Task list styles */
+.ProseMirror ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+
+.ProseMirror ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+}
+
+.ProseMirror ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  user-select: none;
+}
+
+.ProseMirror ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}

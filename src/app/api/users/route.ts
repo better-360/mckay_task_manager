@@ -1,29 +1,64 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions)
     if (!session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const users = await prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        emailVerified: true,
-        createdAt: true,
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    })
+    const { searchParams } = new URL(request.url)
+    const skip = parseInt(searchParams.get('skip') || '0')
+    const take = parseInt(searchParams.get('take') || '10')
+    const search = searchParams.get('search')
+    const role = searchParams.get('role')
+
+    const where: Prisma.UserWhereInput = {
+      ...(search && {
+        OR: [
+          { 
+            name: { 
+              contains: search, 
+              mode: Prisma.QueryMode.insensitive 
+            } 
+          },
+          { 
+            email: { 
+              contains: search, 
+              mode: Prisma.QueryMode.insensitive 
+            } 
+          }
+        ]
+      }),
+      ...(role && { role: role as any })
+    }
+
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        skip,
+        take,
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          profilePicture: true,
+          phoneNumber: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+      }),
+      prisma.user.count({ where })
+    ])
 
     // Get task counts for each user
     const usersWithCounts = await Promise.all(
@@ -59,7 +94,7 @@ export async function GET() {
       })
     )
 
-    return NextResponse.json(usersWithCounts)
+    return NextResponse.json({ users: usersWithCounts, total })
   } catch (error) {
     console.error('Error fetching users:', error)
     return NextResponse.json(

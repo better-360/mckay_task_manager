@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createTaskActivity } from '@/lib/activity'
+import { eventEmitter } from '../events/route'
 
 export async function GET(req: Request) {
   try {
@@ -42,6 +44,7 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           }
         },
         createdBy: {
@@ -49,6 +52,7 @@ export async function GET(req: Request) {
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           }
         },
         tags: {
@@ -86,7 +90,10 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { title, description, customerId, assigneeId, dueDate, status = 'PENDING' } = await req.json()
+    const requestData = await req.json()
+    console.log('Request data:', requestData)
+
+    const { title, description, customerId, assigneeId, dueDate, status = 'PENDING' } = requestData
 
     if (!title || !customerId) {
       return NextResponse.json(
@@ -138,6 +145,7 @@ export async function POST(req: Request) {
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           }
         },
         createdBy: {
@@ -145,10 +153,26 @@ export async function POST(req: Request) {
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           }
         }
       }
     })
+
+    // Create activity log
+    await createTaskActivity(
+      task.id,
+      session.user.id,
+      'TASK_CREATED',
+      {
+        title: task.title,
+        customer: customer.name,
+        assignee: task.assignee?.name || task.assignee?.email,
+      }
+    )
+
+    // Emit real-time event for task creation
+    eventEmitter.emit('task_created', task)
 
     return NextResponse.json(task, { status: 201 })
   } catch (error) {

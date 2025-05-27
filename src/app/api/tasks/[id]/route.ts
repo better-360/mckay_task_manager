@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { createTaskActivity } from '@/lib/activity'
+import { eventEmitter } from '../../events/route'
+import { formatDate } from '@/lib/utils'
 
 export async function GET(
   request: NextRequest,
@@ -23,6 +26,7 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           },
         },
         customer: {
@@ -36,6 +40,7 @@ export async function GET(
             id: true,
             name: true,
             email: true,
+            profilePicture: true,
           },
         },
         tags: {
@@ -79,26 +84,9 @@ export async function PUT(
     const { id } = await params
     const { title, description, assigneeId, dueDate, status } = await request.json()
 
-    // Verify task exists
+    // Verify task exists and get current data
     const existingTask = await prisma.task.findUnique({
       where: { id },
-    })
-
-    if (!existingTask) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
-    }
-
-    const updateData: any = {}
-    
-    if (title !== undefined) updateData.title = title
-    if (description !== undefined) updateData.description = description
-    if (assigneeId !== undefined) updateData.assigneeId = assigneeId
-    if (dueDate !== undefined) updateData.dueDate = dueDate ? new Date(dueDate) : null
-    if (status !== undefined) updateData.status = status
-
-    const task = await prisma.task.update({
-      where: { id },
-      data: updateData,
       include: {
         assignee: {
           select: {
@@ -107,34 +95,136 @@ export async function PUT(
             email: true,
           },
         },
-        customer: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        tags: {
-          include: {
-            tag: true,
-          },
-        },
-        _count: {
-          select: {
-            notes: true,
-            attachments: true,
-          },
-        },
       },
     })
 
-    return NextResponse.json(task)
+    if (!existingTask) {
+      return NextResponse.json({ error: 'Task not found' }, { status: 404 })
+    }
+
+    const updateData: any = {}
+    const activities: Array<{ type: string; metadata: any }> = []
+    
+    // Track changes for activity log
+    if (title !== undefined && title !== existingTask.title) {
+      updateData.title = title
+      activities.push({
+        type: 'TASK_UPDATED',
+        metadata: { field: 'title', oldValue: existingTask.title, newValue: title }
+      })
+    }
+
+    if (description !== undefined && description !== existingTask.description) {
+      updateData.description = description
+      activities.push({
+        type: 'TASK_UPDATED',
+        metadata: { field: 'description', oldValue: existingTask.description, newValue: description }
+      })
+    }
+
+    if (assigneeId !== undefined && assigneeId !== existingTask.assigneeId) {
+      updateData.assigneeId = assigneeId
+      
+      // Get new assignee info if provided
+      let newAssignee = null
+      if (assigneeId) {
+        newAssignee = await prisma.user.findUnique({
+          where: { id: assigneeId },
+          select: { name: true, email: true }
+        })
+      }
+
+      activities.push({
+        type: 'ASSIGNEE_CHANGED',
+        metadata: {
+          oldAssignee: existingTask.assignee?.name || existingTask.assignee?.email,
+          newAssignee: newAssignee?.name || newAssignee?.email,
+        }
+      })
+    }
+
+    if (dueDate !== undefined) {
+      const newDueDate = dueDate ? new Date(dueDate) : null
+      const oldDueDate = existingTask.dueDate
+      
+      if (newDueDate?.getTime() !== oldDueDate?.getTime()) {
+        updateData.dueDate = newDueDate
+        activities.push({
+          type: 'DUE_DATE_CHANGED',
+          metadata: {
+            oldDueDate: oldDueDate ? formatDate(oldDueDate.toISOString()) : null,
+            newDueDate: newDueDate ? formatDate(newDueDate.toISOString()) : null,
+          }
+        })
+      }
+    }
+
+    if (status !== undefined && status !== existingTask.status) {
+      updateData.status = status
+      activities.push({
+        type: 'STATUS_CHANGED',
+        metadata: { oldStatus: existingTask.status, newStatus: status }
+      })
+    }
+
+    // Update task if there are changes
+    let updatedTask = existingTask
+    if (Object.keys(updateData).length > 0) {
+      updatedTask = await prisma.task.update({
+        where: { id },
+        data: updateData,
+        include: {
+          assignee: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              profilePicture: true,
+            },
+          },
+          customer: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              profilePicture: true,
+            },
+          },
+          tags: {
+            include: {
+              tag: true,
+            },
+          },
+          _count: {
+            select: {
+              notes: true,
+              attachments: true,
+            },
+          },
+        },
+      })
+
+      // Create activity logs for each change
+      for (const activity of activities) {
+        await createTaskActivity(
+          id,
+          session.user.id,
+          activity.type,
+          activity.metadata
+        )
+      }
+
+      // Emit real-time event for task update
+      eventEmitter.emit('task_updated', updatedTask)
+    }
+
+    return NextResponse.json(updatedTask)
   } catch (error) {
     console.error('Error updating task:', error)
     return NextResponse.json(
@@ -165,6 +255,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
+    // Create activity log before deletion
+    await createTaskActivity(
+      id,
+      session.user.id,
+      'TASK_DELETED',
+      { title: existingTask.title }
+    )
+
     // Delete related records first (cascade delete)
     await prisma.$transaction([
       // Delete task notes
@@ -179,11 +277,18 @@ export async function DELETE(
       prisma.attachment.deleteMany({
         where: { taskId: id },
       }),
+      // Delete activities
+      prisma.taskActivity.deleteMany({
+        where: { taskId: id },
+      }),
       // Finally delete the task
       prisma.task.delete({
         where: { id },
       }),
     ])
+
+    // Emit real-time event for task deletion
+    eventEmitter.emit('task_deleted', { id, title: existingTask.title })
 
     return NextResponse.json({ message: 'Task deleted successfully' })
   } catch (error) {
