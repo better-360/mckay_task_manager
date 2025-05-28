@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import { Send, Bot, User, Zap } from 'lucide-react'
 import { CopilotKit } from '@copilotkit/react-core'
-import { useCopilotChat, useCopilotAction } from '@copilotkit/react-core'
+import { useCopilotChat } from '@copilotkit/react-core'
 import { TextMessage, Role } from "@copilotkit/runtime-client-gql"
 import { Mention, MentionsInput } from 'react-mentions'
+import { useSession } from 'next-auth/react'
 
 function ChatInterfaceInner() {
+  const { data: session, status } = useSession()
   const {
     visibleMessages,
     appendMessage,
@@ -20,7 +22,35 @@ function ChatInterfaceInner() {
   const [dataLoading, setDataLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  
+  // Show login required message if not authenticated
+  if (status === 'loading') {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)] bg-white rounded-lg border border-gray-200">
+        <div className="text-center">
+          <Bot className="h-8 w-8 text-blue-600 mx-auto mb-2 animate-spin" />
+          <p className="text-gray-600">Yükleniyor...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!session?.user) {
+    return (
+      <div className="flex items-center justify-center h-[calc(100vh-200px)] bg-white rounded-lg border border-gray-200">
+        <div className="text-center">
+          <Bot className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+          <p className="text-gray-600 mb-2">AI Assistant kullanmak için giriş yapmalısınız</p>
+          <button 
+            onClick={() => window.location.href = '/auth/signin'}
+            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          >
+            Giriş Yap
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Fetch users and customers
   useEffect(() => {
     const fetchData = async () => {

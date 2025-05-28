@@ -2,6 +2,8 @@
 import { CopilotRuntime } from "@copilotkit/runtime";
 import { handleCopilotRequest } from "./agent";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export const runtime = new CopilotRuntime({
     actions: () => [
@@ -11,19 +13,39 @@ export const runtime = new CopilotRuntime({
         description: "AI-powered analysis of client emails/messages. REQUIRES customer to be specified via mention system. Cannot create tasks without proper customer selection.",
         parameters: [
           { name: "message", type: "string", required: true, description: "Client email or message content to analyze" },
-          { name: "userId", type: "string", required: true, description: "ID of the user processing the message" },
           { name: "customerId", type: "string", required: true, description: "REQUIRED: Customer ID selected via mention system - tasks cannot be created without this" },
           { name: "autoApprove", type: "boolean", required: false, description: "Auto-approve task creation (default: false for manual approval)" },
         ],
-        handler: async ({ message, userId, customerId, autoApprove = false }: { message: string, userId: string, customerId: string, autoApprove?: boolean }) => {
+        handler: async ({ message, customerId, autoApprove = false }: { message: string, customerId: string, autoApprove?: boolean }, ctx?: any) => {
           console.log(`🎯 CopilotKit AI Agent called: ${message.substring(0, 50)}...`);
           
           try {
-            // UUID validation
+            // Get user ID from context/session
+            let userId: string | undefined;
+            
+            try {
+              // Try to get from NextAuth session
+              const session = await getServerSession(authOptions);
+              userId = session?.user?.id;
+            } catch (error) {
+              console.warn("Could not get session:", error);
+            }
+            
+            // Fallback: use admin user ID from database if no session
+            if (!userId) {
+              const adminUser = await prisma.user.findFirst({
+                where: { role: 'ADMIN' }
+              });
+              userId = adminUser?.id;
+            }
+            
+            // Final validation
             if (!userId || userId.trim() === '') {
               return {
                 success: false,
-                error: "Invalid user ID provided"
+                error: "❌ User authentication required",
+                message: "🔐 **Authentication Required**\n\nPlease log in to use the AI assistant.",
+                requiresAuth: true
               };
             }
 
@@ -50,6 +72,7 @@ export const runtime = new CopilotRuntime({
               };
             }
 
+            console.log(`✅ Using userId: ${userId} for user session`);
             const result = await handleCopilotRequest(message, userId);
             
             if (result.pendingApproval && result.taskSuggestion && autoApprove) {
@@ -130,12 +153,11 @@ export const runtime = new CopilotRuntime({
         description: "Approve or reject an AI-suggested task",
         parameters: [
           { name: "originalMessage", type: "string", required: true, description: "Original message that generated the suggestion" },
-          { name: "userId", type: "string", required: true, description: "ID of the user making the approval" },
           { name: "customerId", type: "string", required: true, description: "Customer ID for the task" },
           { name: "approved", type: "boolean", required: true, description: "Whether to approve (true) or reject (false) the task" },
           { name: "taskSuggestion", type: "object", required: false, description: "Task suggestion object with customer info" },
         ],
-        handler: async ({ originalMessage, userId, customerId, approved, taskSuggestion }: { originalMessage: string, userId: string, customerId: string, approved: boolean, taskSuggestion?: any }) => {
+        handler: async ({ originalMessage, customerId, approved, taskSuggestion }: { originalMessage: string, customerId: string, approved: boolean, taskSuggestion?: any }, ctx?: any) => {
           if (!approved) {
             return {
               success: true,
@@ -145,11 +167,31 @@ export const runtime = new CopilotRuntime({
           }
 
           try {
-            // UUID validation
+            // Get user ID from session like in main action
+            let userId: string | undefined;
+            
+            try {
+              const session = await getServerSession(authOptions);
+              userId = session?.user?.id;
+            } catch (error) {
+              console.warn("Could not get session:", error);
+            }
+            
+            // Fallback: use admin user ID from database if no session
+            if (!userId) {
+              const adminUser = await prisma.user.findFirst({
+                where: { role: 'ADMIN' }
+              });
+              userId = adminUser?.id;
+            }
+            
+            // Final validation
             if (!userId || userId.trim() === '') {
               return {
                 success: false,
-                error: "Invalid user ID provided"
+                error: "❌ User authentication required",
+                message: "🔐 **Authentication Required**\n\nPlease log in to approve tasks.",
+                requiresAuth: true
               };
             }
 
