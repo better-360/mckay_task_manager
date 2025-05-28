@@ -24,7 +24,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <QueryClientProvider client={queryClient}>
-        <CopilotKit runtimeUrl="/api/copilotkit">
+        <CopilotKit runtimeUrl="/api/copilotkit" >
           {children}
           <Toaster
             position="top-right"

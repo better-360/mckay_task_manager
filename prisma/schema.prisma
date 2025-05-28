@@ -106,8 +106,8 @@ model Task {
   assignee    User?        @relation("AssignedTasks", fields: [assigneeId], references: [id])
   customerId  String       @db.Uuid
   customer    Customer     @relation(fields: [customerId], references: [id])
-  createdById String       @db.Uuid
-  createdBy   User         @relation("CreatedTasks", fields: [createdById], references: [id])
+  createdById String?       @db.Uuid
+  createdBy   User?         @relation("CreatedTasks", fields: [createdById], references: [id])
   dueDate     DateTime?
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt

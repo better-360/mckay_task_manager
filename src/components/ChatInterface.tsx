@@ -18,62 +18,9 @@ function ChatInterfaceInner() {
   const [users, setUsers] = useState<any[]>([])
   const [input, setInput] = useState('')
   const [dataLoading, setDataLoading] = useState(true)
-  const [autoTaskLoading, setAutoTaskLoading] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  // Auto task creation function
-  const handleAutoTaskCreation = async () => {
-    if (!input.trim()) return;
-    
-    setAutoTaskLoading(true);
-    try {
-      
-      // Extract company name from input if possible
-      const companyMatch = input.match(/\((.*?)\)/);
-      const senderCompany = companyMatch ? companyMatch[1] : undefined;
-      
-      // Call the CopilotKit action directly via API
-      const response = await fetch('/api/copilotkit', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          action: 'analyze_and_create_task',
-          parameters: {
-            message: input,
-            senderCompany: senderCompany
-          }
-        })
-      });
-      
-      const result = await response.json();
-      
-      if (result.success) {
-        // Add success message to chat
-        appendMessage(new TextMessage({ 
-          content: `✅ ${result.message}`, 
-          role: Role.Assistant 
-        }));
-        setInput(''); // Clear input
-      } else {
-        // Add error message to chat
-        appendMessage(new TextMessage({ 
-          content: `❌ Task creation failed: ${result.error}`, 
-          role: Role.Assistant 
-        }));
-      }
-    } catch (error) {
-      console.error('Auto task creation error:', error);
-      appendMessage(new TextMessage({ 
-        content: `❌ Error creating task: ${error instanceof Error ? error.message : 'Unknown error'}`, 
-        role: Role.Assistant 
-      }));
-    } finally {
-      setAutoTaskLoading(false);
-    }
-  }
-
+  
   // Fetch users and customers
   useEffect(() => {
     const fetchData = async () => {
@@ -460,23 +407,11 @@ function ChatInterfaceInner() {
                 )}
               />
             </MentionsInput>
-          </div>
-          
-          {/* Auto Task Creation Button */}
-          <button
-            type="button"
-            onClick={handleAutoTaskCreation}
-            disabled={isLoading || dataLoading || autoTaskLoading || !input.trim()}
-            className="px-3 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-            title="Otomatik Task Oluştur"
-          >
-            <Zap className="h-4 w-4" />
-          </button>
-          
+          </div>  
           {/* Regular Send Button */}
           <button
             type="submit"
-            disabled={isLoading || dataLoading || autoTaskLoading || !input.trim()}
+            disabled={isLoading || dataLoading || !input.trim()}
             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
             <Send className="h-4 w-4" />

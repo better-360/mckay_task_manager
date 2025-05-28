@@ -1557,7 +1557,7 @@
     zod "^3.22.3"
     zod-to-json-schema "^3.22.5"
 
-"@langchain/core@^0.3.38", "@langchain/core@>=0.2.21 <0.4.0", "@langchain/core@>=0.2.31 <0.4.0", "@langchain/core@>=0.3.39 <0.4.0":
+"@langchain/core@^0.3.38", "@langchain/core@^0.3.57", "@langchain/core@>=0.2.21 <0.4.0", "@langchain/core@>=0.2.31 <0.4.0", "@langchain/core@>=0.2.36 <0.3.0 || >=0.3.40 < 0.4.0", "@langchain/core@>=0.3.39 <0.4.0":
   version "0.3.57"
   resolved "https://registry.npmjs.org/@langchain/core/-/core-0.3.57.tgz"
   integrity sha512-jz28qCTKJmi47b6jqhQ6vYRTG5jRpqhtPQjriRTB5wR8mgvzo6xKs0fG/kExS3ZvM79ytD1npBvgf8i19xOo9Q==
@@ -1591,7 +1591,14 @@
     "@langchain/google-common" "~0.1.8"
     google-auth-library "^8.9.0"
 
-"@langchain/langgraph-sdk@^0.0.70":
+"@langchain/langgraph-checkpoint@~0.0.17":
+  version "0.0.17"
+  resolved "https://registry.npmjs.org/@langchain/langgraph-checkpoint/-/langgraph-checkpoint-0.0.17.tgz"
+  integrity sha512-6b3CuVVYx+7x0uWLG+7YXz9j2iBa+tn2AXvkLxzEvaAsLE6Sij++8PPbS2BZzC+S/FPJdWsz6I5bsrqL0BYrCA==
+  dependencies:
+    uuid "^10.0.0"
+
+"@langchain/langgraph-sdk@^0.0.70", "@langchain/langgraph-sdk@~0.0.32":
   version "0.0.70"
   resolved "https://registry.npmjs.org/@langchain/langgraph-sdk/-/langgraph-sdk-0.0.70.tgz"
   integrity sha512-O8I12bfeMVz5fOrXnIcK4IdRf50IqyJTO458V56wAIHLNoi4H8/JHM+2M+Y4H2PtslXIGnvomWqlBd0eY5z/Og==
@@ -1600,6 +1607,16 @@
     p-queue "^6.6.2"
     p-retry "4"
     uuid "^9.0.0"
+
+"@langchain/langgraph@^0.2.73":
+  version "0.2.73"
+  resolved "https://registry.npmjs.org/@langchain/langgraph/-/langgraph-0.2.73.tgz"
+  integrity sha512-vw+IXV2Q7x/QaykNj3VE/Ak3aPlst3spkpM6zYtqwGkQlhLZU4Lb8PHHPjqNNYHSdOTDj9x4jIRUPZArGHx9Aw==
+  dependencies:
+    "@langchain/langgraph-checkpoint" "~0.0.17"
+    "@langchain/langgraph-sdk" "~0.0.32"
+    uuid "^10.0.0"
+    zod "^3.23.8"
 
 "@langchain/openai@^0.4.2", "@langchain/openai@>=0.1.0 <0.6.0", "@langchain/openai@>=0.2.0 <0.6.0":
   version "0.4.9"
@@ -8508,15 +8525,15 @@ yargs@^17.7.2:
     y18n "^5.0.5"
     yargs-parser "^21.1.1"
 
-zod-to-json-schema@^3.22.3, zod-to-json-schema@^3.22.4, zod-to-json-schema@^3.22.5, zod-to-json-schema@^3.23.5:
+zod-to-json-schema@^3.22.3, zod-to-json-schema@^3.22.4, zod-to-json-schema@^3.22.5, zod-to-json-schema@^3.23.5, zod-to-json-schema@^3.x:
   version "3.24.5"
   resolved "https://registry.npmjs.org/zod-to-json-schema/-/zod-to-json-schema-3.24.5.tgz"
   integrity sha512-/AuWwMP+YqiPbsJx5D6TfgRTc4kTLjsh5SOcd4bLsfUg2RcEXrFMJl1DGgdHy2aCfsIA/cr/1JM0xcB2GZji8g==
 
-zod@^3.22.3, zod@^3.22.4, zod@^3.23.3, zod@^3.23.8, zod@^3.24.1:
-  version "3.25.28"
-  resolved "https://registry.npmjs.org/zod/-/zod-3.25.28.tgz"
-  integrity sha512-/nt/67WYKnr5by3YS7LroZJbtcCBurDKKPBPWWzaxvVCGuG/NOsiKkrjoOhI8mJ+SQUXEbUzeB3S+6XDUEEj7Q==
+zod@^3.22.3, zod@^3.22.4, zod@^3.23.3, zod@^3.23.8, zod@^3.24.1, zod@^3.25.32:
+  version "3.25.32"
+  resolved "https://registry.npmjs.org/zod/-/zod-3.25.32.tgz"
+  integrity sha512-OSm2xTIRfW8CV5/QKgngwmQW/8aPfGdaQFlrGoErlgg/Epm7cjb6K6VEyExfe65a3VybUOnu381edLb0dfJl0g==
 
 zwitch@^2.0.0:
   version "2.0.4"
