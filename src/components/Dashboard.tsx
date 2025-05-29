@@ -2,17 +2,18 @@
 
 import { useState } from 'react'
 import { useSession, signOut } from 'next-auth/react'
-import { LogOut, MessageSquare, Users, CheckSquare, Building2, Star } from 'lucide-react'
+import { LogOut, MessageSquare, Users, CheckSquare, Building2, Star, Tag } from 'lucide-react'
 import TaskBoard from './TaskBoard'
 import ChatInterface from './ChatInterface'
 import CustomerManagement from './CustomerManagement'
 import UserManagement from './UserManagement'
 import SkillManagement from './SkillManagement'
+import TagManagement from './TagManagement'
 
 
 export function Dashboard() {
   const { data: session } = useSession();
-  const [activeTab, setActiveTab] = useState<'tasks' | 'chat' | 'customers' | 'users' | 'skills'>('tasks');
+  const [activeTab, setActiveTab] = useState<'tasks' | 'chat' | 'customers' | 'users' | 'skills' | 'tags'>('tasks');
 
   const handleSignOut = () => {
     signOut({ callbackUrl: '/auth/signin' });
@@ -100,19 +101,34 @@ export function Dashboard() {
               </div>
             </button>
             {session?.user?.role === 'ADMIN' && (
-              <button
-                onClick={() => setActiveTab('skills')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                  activeTab === 'skills'
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
-              >
-                <div className="flex items-center space-x-2">
-                  <Star className="h-4 w-4" />
-                  <span>Yetenekler & İş Tanımları</span>
-                </div>
-              </button>
+              <>
+                <button
+                  onClick={() => setActiveTab('skills')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'skills'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Star className="h-4 w-4" />
+                    <span>Yetenekler</span>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setActiveTab('tags')}
+                  className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                    activeTab === 'tags'
+                      ? 'border-blue-500 text-blue-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  <div className="flex items-center space-x-2">
+                    <Tag className="h-4 w-4" />
+                    <span>Etiketler</span>
+                  </div>
+                </button>
+              </>
             )}
             <button
               onClick={() => setActiveTab('chat')}
@@ -138,6 +154,7 @@ export function Dashboard() {
         {activeTab === 'users' && <UserManagement />}
         {activeTab === 'chat' && <ChatInterface />}
         {activeTab === 'skills' && <SkillManagement />}
+        {activeTab === 'tags' && <TagManagement />}
       </main>
     </div>
   );

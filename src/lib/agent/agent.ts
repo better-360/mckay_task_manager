@@ -47,7 +47,7 @@ const modelWithTools = model.bindTools(tools);
 
 // Ana agent fonksiyonu
 async function callModel(state: typeof AgentState.State) {
-  const { messages, teamWorkloads, emailContent, pendingApproval, userApproval, taskSuggestion } = state;
+  const { messages, teamWorkloads, pendingApproval, userApproval, taskSuggestion } = state;
   
   // Eğer onay bekleniyorsa ve onay verilmişse task oluştur
   if (pendingApproval && userApproval && taskSuggestion) {

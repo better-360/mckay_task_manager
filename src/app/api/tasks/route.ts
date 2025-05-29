@@ -93,7 +93,7 @@ export async function POST(req: Request) {
     const requestData = await req.json()
     console.log('Request data:', requestData)
 
-    const { title, description, customerId, assigneeId, dueDate, status = 'PENDING' } = requestData
+    const { title, description, customerId, assigneeId, dueDate, status = 'PENDING', tagIds, newTags } = requestData
 
     if (!title || !customerId) {
       return NextResponse.json(
@@ -128,6 +128,55 @@ export async function POST(req: Request) {
       }
     }
 
+    // Process tags - create new ones and validate existing ones
+    let finalTagIds: string[] = []
+    
+    if (tagIds && Array.isArray(tagIds) && tagIds.length > 0) {
+      // Separate existing and new tags
+      const existingTagIds = tagIds.filter((id: string) => !id.startsWith('temp-'))
+      const tempTagIds = tagIds.filter((id: string) => id.startsWith('temp-'))
+      
+      // Validate existing tags
+      if (existingTagIds.length > 0) {
+        const validTags = await prisma.tag.findMany({
+          where: { id: { in: existingTagIds } }
+        })
+
+        if (validTags.length !== existingTagIds.length) {
+          return NextResponse.json(
+            { error: 'One or more existing tags not found' }, 
+            { status: 404 }
+          )
+        }
+        finalTagIds.push(...existingTagIds)
+      }
+
+      // Create new tags from temp IDs
+      if (tempTagIds.length > 0 && newTags && Array.isArray(newTags)) {
+        for (const newTag of newTags) {
+          if (tempTagIds.includes(newTag.id)) {
+            // Check if tag with same name already exists
+            const existingTag = await prisma.tag.findFirst({
+              where: { name: { equals: newTag.name, mode: 'insensitive' } }
+            })
+
+            if (existingTag) {
+              finalTagIds.push(existingTag.id)
+            } else {
+              // Create new tag
+              const createdTag = await prisma.tag.create({
+                data: {
+                  name: newTag.name,
+                  color: newTag.color
+                }
+              })
+              finalTagIds.push(createdTag.id)
+            }
+          }
+        }
+      }
+    }
+
     const task = await prisma.task.create({
       data: {
         title,
@@ -137,6 +186,12 @@ export async function POST(req: Request) {
         assigneeId: assigneeId || null,
         dueDate: dueDate ? new Date(dueDate) : null,
         status,
+        // Create tag connections
+        tags: finalTagIds.length > 0 ? {
+          create: finalTagIds.map((tagId: string) => ({
+            tagId
+          }))
+        } : undefined,
       },
       include: {
         customer: true,
@@ -155,6 +210,11 @@ export async function POST(req: Request) {
             email: true,
             profilePicture: true,
           }
+        },
+        tags: {
+          include: {
+            tag: true
+          }
         }
       }
     })
@@ -168,6 +228,7 @@ export async function POST(req: Request) {
         title: task.title,
         customer: customer.name,
         assignee: task.assignee?.name || task.assignee?.email,
+        tagsCount: task.tags?.length || 0,
       }
     )
 

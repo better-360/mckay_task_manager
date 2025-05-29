@@ -82,7 +82,7 @@ export async function PUT(
     }
 
     const { id } = await params
-    const { title, description, assigneeId, dueDate, status } = await request.json()
+    const { title, description, assigneeId, dueDate, status, tagIds, newTags } = await request.json()
 
     // Verify task exists and get current data
     const existingTask = await prisma.task.findUnique({
@@ -95,6 +95,11 @@ export async function PUT(
             email: true,
           },
         },
+        tags: {
+          include: {
+            tag: true
+          }
+        }
       },
     })
 
@@ -167,47 +172,185 @@ export async function PUT(
       })
     }
 
+    // Handle tag updates with new tag creation
+    let tagUpdateNeeded = false
+    let finalTagIds: string[] = []
+    
+    if (tagIds !== undefined && Array.isArray(tagIds)) {
+      // Process tags - create new ones and validate existing ones
+      if (tagIds.length > 0) {
+        // Separate existing and new tags
+        const existingTagIds = tagIds.filter((id: string) => !id.startsWith('temp-'))
+        const tempTagIds = tagIds.filter((id: string) => id.startsWith('temp-'))
+        
+        // Validate existing tags
+        if (existingTagIds.length > 0) {
+          const validTags = await prisma.tag.findMany({
+            where: { id: { in: existingTagIds } }
+          })
+          
+          if (validTags.length !== existingTagIds.length) {
+            return NextResponse.json(
+              { error: 'One or more existing tags not found' }, 
+              { status: 404 }
+            )
+          }
+          finalTagIds.push(...existingTagIds)
+        }
+
+        // Create new tags from temp IDs
+        if (tempTagIds.length > 0 && newTags && Array.isArray(newTags)) {
+          for (const newTag of newTags) {
+            if (tempTagIds.includes(newTag.id)) {
+              // Check if tag with same name already exists
+              const existingTag = await prisma.tag.findFirst({
+                where: { name: { equals: newTag.name, mode: 'insensitive' } }
+              })
+
+              if (existingTag) {
+                finalTagIds.push(existingTag.id)
+              } else {
+                // Create new tag
+                const createdTag = await prisma.tag.create({
+                  data: {
+                    name: newTag.name,
+                    color: newTag.color
+                  }
+                })
+                finalTagIds.push(createdTag.id)
+              }
+            }
+          }
+        }
+      }
+
+      const currentTagIds = existingTask.tags.map(t => t.tag.id).sort()
+      const newTagIds = [...finalTagIds].sort()
+      
+      // Check if tags have changed
+      if (JSON.stringify(currentTagIds) !== JSON.stringify(newTagIds)) {
+        tagUpdateNeeded = true
+        
+        activities.push({
+          type: 'TAGS_CHANGED',
+          metadata: {
+            oldTags: existingTask.tags.map(t => t.tag.name),
+            newTags: finalTagIds.length > 0 ? (await prisma.tag.findMany({
+              where: { id: { in: finalTagIds } },
+              select: { name: true }
+            })).map(t => t.name) : [],
+          }
+        })
+      }
+    }
+
     // Update task if there are changes
     let updatedTask = existingTask
-    if (Object.keys(updateData).length > 0) {
-      updatedTask = await prisma.task.update({
-        where: { id },
-        data: updateData,
-        include: {
-          assignee: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              profilePicture: true,
+    if (Object.keys(updateData).length > 0 || tagUpdateNeeded) {
+      // Use transaction to update task and tags atomically
+      updatedTask = await prisma.$transaction(async (tx) => {
+        // Update task fields
+        const task = await tx.task.update({
+          where: { id },
+          data: updateData,
+          include: {
+            assignee: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                profilePicture: true,
+              },
+            },
+            customer: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                profilePicture: true,
+              },
+            },
+            tags: {
+              include: {
+                tag: true,
+              },
+            },
+            _count: {
+              select: {
+                notes: true,
+                attachments: true,
+              },
             },
           },
-          customer: {
-            select: {
-              id: true,
-              name: true,
-            },
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              profilePicture: true,
-            },
-          },
-          tags: {
+        })
+
+        // Update tags if needed
+        if (tagUpdateNeeded) {
+          // Delete existing tag associations
+          await tx.taskTag.deleteMany({
+            where: { taskId: id }
+          })
+
+          // Create new tag associations
+          if (finalTagIds.length > 0) {
+            await tx.taskTag.createMany({
+              data: finalTagIds.map((tagId: string) => ({
+                taskId: id,
+                tagId
+              }))
+            })
+          }
+
+          // Re-fetch task with updated tags
+          const taskWithUpdatedTags = await tx.task.findUnique({
+            where: { id },
             include: {
-              tag: true,
+              assignee: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  profilePicture: true,
+                },
+              },
+              customer: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+              createdBy: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  profilePicture: true,
+                },
+              },
+              tags: {
+                include: {
+                  tag: true,
+                },
+              },
+              _count: {
+                select: {
+                  notes: true,
+                  attachments: true,
+                },
+              },
             },
-          },
-          _count: {
-            select: {
-              notes: true,
-              attachments: true,
-            },
-          },
-        },
+          })
+
+          return taskWithUpdatedTags!
+        }
+
+        return task
       })
 
       // Create activity logs for each change

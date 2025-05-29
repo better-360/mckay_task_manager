@@ -86,6 +86,13 @@ interface User {
   profilePicture?: string
 }
 
+interface Tag {
+  id: string
+  name: string
+  color: string
+  isNew?: boolean
+}
+
 interface TaskModalProps {
   task: Task
   onClose: () => void
@@ -103,10 +110,18 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
   const [editingNoteContent, setEditingNoteContent] = useState('')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [users, setUsers] = useState<User[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
+  const [selectedTags, setSelectedTags] = useState<Tag[]>(
+    task.tags.map(t => ({ id: t.tag.id, name: t.tag.name, color: t.tag.color }))
+  )
+  const [tagInput, setTagInput] = useState('')
+  const [showTagSuggestions, setShowTagSuggestions] = useState(false)
+  const [filteredTags, setFilteredTags] = useState<Tag[]>([])
   const [loading, setLoading] = useState(false)
   const [notesLoading, setNotesLoading] = useState(true)
   const [activitiesLoading, setActivitiesLoading] = useState(true)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const tagInputRef = useRef<HTMLInputElement>(null)
 
   const newNoteEditorRef = useRef<RichTextEditorRef>(null)
   const editNoteEditorRef = useRef<RichTextEditorRef>(null)
@@ -119,6 +134,73 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
     dueDate: task.dueDate ? new Date(task.dueDate).toISOString().slice(0, 16) : '',
     status: task.status,
   })
+
+  const getRandomColor = () => {
+    const colors = ['#3B82F6', '#EF4444', '#10B981', '#F59E0B', '#8B5CF6', '#F97316', '#06B6D4', '#EC4899']
+    return colors[Math.floor(Math.random() * colors.length)]
+  }
+
+  // Filter tags based on input
+  useEffect(() => {
+    if (tagInput.trim()) {
+      const filtered = tags.filter(tag => 
+        tag.name.toLowerCase().includes(tagInput.toLowerCase()) &&
+        !selectedTags.some(selected => selected.id === tag.id)
+      )
+      setFilteredTags(filtered)
+      setShowTagSuggestions(filtered.length > 0)
+    } else {
+      setFilteredTags([])
+      setShowTagSuggestions(false)
+    }
+  }, [tagInput, tags, selectedTags])
+
+  const selectExistingTag = (tag: Tag) => {
+    setSelectedTags(prev => [...prev, tag])
+    setTagInput('')
+    setShowTagSuggestions(false)
+  }
+
+  const createNewTag = (tagName: string) => {
+    const newTag = {
+      id: `temp-${Date.now()}`,
+      name: tagName,
+      color: getRandomColor(),
+      isNew: true
+    }
+    setSelectedTags(prev => [...prev, newTag])
+    setTagInput('')
+    setShowTagSuggestions(false)
+  }
+
+  const handleTagInputKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      const trimmedInput = tagInput.trim()
+      
+      if (!trimmedInput) return
+
+      // Check if there's an exact match in filtered tags
+      const exactMatch = filteredTags.find(tag => 
+        tag.name.toLowerCase() === trimmedInput.toLowerCase()
+      )
+
+      if (exactMatch) {
+        selectExistingTag(exactMatch)
+      } else if (filteredTags.length > 0) {
+        // Select first suggestion if available
+        selectExistingTag(filteredTags[0])
+      } else {
+        // Create new tag
+        if (!selectedTags.some(tag => tag.name.toLowerCase() === trimmedInput.toLowerCase())) {
+          createNewTag(trimmedInput)
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setShowTagSuggestions(false)
+      setTagInput('')
+    }
+  }
 
   // Real-time updates for this specific task
   useRealtime({
@@ -151,6 +233,7 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
     fetchActivities()
     fetchCustomers()
     fetchUsers()
+    fetchTags()
   }, [task.id])
 
   const fetchNotes = async () => {
@@ -207,33 +290,75 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
     }
   }
 
+  const fetchTags = async () => {
+    try {
+      console.log('🏷️ TaskModal: Fetching tags...')
+      const response = await fetch('/api/tags')
+      console.log('🏷️ TaskModal: Response status:', response.status)
+      
+      if (response.ok) {
+        const data = await response.json()
+        console.log('🏷️ TaskModal: Raw response data:', data)
+        console.log('🏷️ TaskModal: Is array?', Array.isArray(data))
+        console.log('🏷️ TaskModal: Data length:', data?.length)
+        
+        if (Array.isArray(data)) {
+          setTags(data)
+          console.log('🏷️ TaskModal: Tags set successfully:', data)
+        } else {
+          console.error('🏷️ TaskModal: Data is not an array:', data)
+          setTags([])
+        }
+      } else {
+        const errorText = await response.text()
+        console.error('🏷️ TaskModal: Failed to fetch tags, status:', response.status, 'Error:', errorText)
+        setTags([])
+      }
+    } catch (error) {
+      console.error('🏷️ TaskModal: Error fetching tags:', error)
+      setTags([])
+    }
+  }
+
   const handleSaveTask = async () => {
     setLoading(true)
     setErrors({})
 
+    console.log('🚀 TaskModal: Saving task with tags:', selectedTags)
+
     try {
+      const updateData = {
+        title: formData.title,
+        description: formData.description || null,
+        assigneeId: formData.assigneeId || null,
+        dueDate: formData.dueDate || null,
+        status: formData.status,
+        tagIds: selectedTags.map(tag => tag.id),
+        newTags: selectedTags.filter(tag => tag.isNew),
+      }
+
+      console.log('📤 TaskModal: Update data being sent:', updateData)
+
       const response = await fetch(`/api/tasks/${task.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          title: formData.title,
-          description: formData.description || null,
-          assigneeId: formData.assigneeId || null,
-          dueDate: formData.dueDate || null,
-          status: formData.status,
-        }),
+        body: JSON.stringify(updateData),
       })
 
       if (response.ok) {
+        const result = await response.json()
+        console.log('✅ TaskModal: Task updated successfully:', result)
         onTaskUpdated()
         setIsEditing(false)
       } else {
         const errorData = await response.json()
+        console.error('❌ TaskModal: Task update failed:', errorData)
         setErrors({ general: errorData.error || 'Bir hata oluştu' })
       }
     } catch (error) {
+      console.error('❌ TaskModal: Task update error:', error)
       setErrors({ general: 'Bir hata oluştu' })
     } finally {
       setLoading(false)
@@ -339,6 +464,32 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
     setEditingNoteId(null)
     setEditingNoteContent('')
   }
+
+  const toggleTag = (tag: Tag) => {
+    console.log('🏷️ TaskModal: Toggling tag:', tag.id)
+    setSelectedTags(prev => {
+      const isSelected = prev.some(t => t.id === tag.id)
+      const newTags = isSelected 
+        ? prev.filter(t => t.id !== tag.id)
+        : [...prev, tag]
+      console.log('🏷️ TaskModal: New selected tags:', newTags)
+      return newTags
+    })
+  }
+
+  // Click outside handler
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (tagInputRef.current && !tagInputRef.current.contains(event.target as Node)) {
+        setShowTagSuggestions(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -503,6 +654,156 @@ export default function TaskModal({ task, onClose, onTaskUpdated, currentUserId 
                         onChange={handleChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
+                    </div>
+                  </div>
+
+                  {/* Tags Section - Linear Style */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Etiketler
+                    </label>
+                    <div className="space-y-3">
+                      {/* Tag Input with Auto-complete */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Etiket eklemek için yazın ve Enter'a basın..."
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                          onKeyDown={handleTagInputKeyDown}
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onFocus={() => {
+                            console.log('🏷️ TaskModal: Input focused. tags:', tags, 'tagInput:', tagInput)
+                            if (tags.length > 0) {
+                              if (tagInput.trim()) {
+                                if (filteredTags.length > 0) {
+                                  setShowTagSuggestions(true)
+                                }
+                              } else {
+                                // Show all available tags when input is empty
+                                const availableTags = tags.filter(tag => 
+                                  !selectedTags.some(selected => selected.id === tag.id)
+                                )
+                                setFilteredTags(availableTags)
+                                setShowTagSuggestions(availableTags.length > 0)
+                              }
+                            }
+                          }}
+                          ref={tagInputRef}
+                        />
+                        <div className="absolute right-2 top-2 text-xs text-gray-400">
+                          Enter ile ekle
+                        </div>
+
+                        {/* Auto-complete Dropdown */}
+                        {showTagSuggestions && filteredTags.length > 0 && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-40 overflow-y-auto">
+                            {filteredTags.map((tag, index) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => selectExistingTag(tag)}
+                                className={`w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center justify-between ${
+                                  index === 0 ? 'bg-blue-50' : ''
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <div
+                                    className="w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: tag.color }}
+                                  />
+                                  <span className="text-sm">{tag.name}</span>
+                                </div>
+                                {index === 0 && (
+                                  <span className="text-xs text-blue-600">Enter ile seç</span>
+                                )}
+                              </button>
+                            ))}
+                            {tagInput.trim() && !filteredTags.some(tag => 
+                              tag.name.toLowerCase() === tagInput.trim().toLowerCase()
+                            ) && (
+                              <div className="border-t border-gray-200">
+                                <button
+                                  type="button"
+                                  onClick={() => createNewTag(tagInput.trim())}
+                                  className="w-full text-left px-3 py-2 hover:bg-gray-100 flex items-center space-x-2 text-green-600"
+                                >
+                                  <span className="text-sm">+ "{tagInput.trim()}" olarak yeni etiket oluştur</span>
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Existing Tags (when not searching) */}
+                      {!tagInput.trim() && tags.length > 0 && (
+                        <div>
+                          <p className="text-xs text-gray-500 mb-2">Mevcut etiketler:</p>
+                          <div className="flex flex-wrap gap-2">
+                            {tags.map((tag) => (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => {
+                                  const isSelected = selectedTags.some(t => t.id === tag.id)
+                                  if (isSelected) {
+                                    setSelectedTags(prev => prev.filter(t => t.id !== tag.id))
+                                  } else {
+                                    setSelectedTags(prev => [...prev, tag])
+                                  }
+                                }}
+                                className={`px-3 py-1 text-sm rounded-full border transition-all duration-200 ${
+                                  selectedTags.some(t => t.id === tag.id)
+                                    ? 'border-transparent text-white shadow-sm'
+                                    : 'border-gray-300 text-gray-700 hover:border-gray-400'
+                                }`}
+                                style={{
+                                  backgroundColor: selectedTags.some(t => t.id === tag.id) 
+                                    ? tag.color 
+                                    : 'transparent',
+                                }}
+                              >
+                                {tag.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Selected Tags */}
+                      {selectedTags.length > 0 && (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                          <p className="text-sm text-blue-800 font-medium mb-2">
+                            ✅ Seçilen etiketler ({selectedTags.length})
+                          </p>
+                          <div className="flex flex-wrap gap-2">
+                            {selectedTags.map((tag) => (
+                              <div
+                                key={tag.id}
+                                className="inline-flex items-center gap-1 px-2 py-1 text-sm rounded-full"
+                                style={{
+                                  backgroundColor: tag.color + '20',
+                                  color: tag.color,
+                                  border: `1px solid ${tag.color}40`,
+                                }}
+                              >
+                                <span>{tag.name}</span>
+                                {tag.isNew && (
+                                  <span className="text-xs bg-green-500 text-white px-1 rounded">YENİ</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedTags(prev => prev.filter(t => t.id !== tag.id))}
+                                  className="ml-1 text-current hover:bg-black hover:bg-opacity-10 rounded-full w-4 h-4 flex items-center justify-center"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
 
